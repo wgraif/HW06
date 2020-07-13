@@ -10,61 +10,131 @@ knitr::opts_chunk$set(echo = TRUE)
 
 library(tidyverse)
 #install.packages("tidyverse")
+#if you get an error on "library(tidyverse)" then please uncomment the above line in order to install the package
 
 theme_set(theme_minimal())
 ```
 
 
 ```{r}
-#d1=read.table("student-mat[1].csv",sep=";",header=TRUE)
-#d2=read.table("student-por[1].csv",sep=";",header=TRUE)
-
-#d3=merge(d1,d2,by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
-#print(nrow(d3)) # 382 students
-
 q1 = read.csv("student-mat[1].csv", sep=";", header=TRUE)
 q2 = read.csv("student-por[1].csv", sep=";", header=TRUE)
 q3 = inner_join(q1,q2,by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+#reads in the csv's and merges them
 
 num.cols <- c("Medu", "Fedu", "famrel.x", "G3.x", "G3.y")
 q3[num.cols] <- sapply(q3[num.cols], as.numeric)
+#makes numeric
+q3$G3.avg <- (q3$G3.x + q3$G3.y / 2)
+#takes averages
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r, warning=FALSE}
+summary2 <- function(col3) {
+#function takes in a column name
+plot2 <- ggplot(q3, mapping = aes(x=q3[[col3]], y=G3.avg, group=q3[[col3]])) +
+  geom_boxplot() +
+  labs(x=col3, y="Average Grade", title="Average Grades by Variable")
+#making a boxplot for the column
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+df2<-q3 %>%
+  group_by(q3[[col3]]) %>%
+  summarize(Mean = mean(G3.avg), Number = n(), Median = median(G3.avg), Standard_Deviation = sd(G3.avg))
+#storing a dataframe for the column with summary stats for it
+colnames(df2)[1] <- col3
+#renaming
 
-```{r}
-summary2 <- function(i2) {
 
-q3 %>%
-ggplot(mapping = aes(x=i2, y=G3.y, group=i2)) +
-  geom_boxplot(notch = TRUE)
+if(typeof(q3[[col3]]) == "double") {
+  #make a scatterplot for numeric columns
+plot3 <- ggplot(df2, aes(x=df2[[col3]], y=Mean)) +
+  geom_line() +
+  geom_point() +
+  labs(x=col3, y="Average Grade", title="Grade means of each group")
 
-knitr::kable ( q3 %>%
-  group_by(i2) %>%
-  summarize(Mean = mean(G3.y), Number = n(), Median = median(G3.y)) )
+
+return(list(plot2, knitr::kable(df2), plot3))
+#numeric columns return the boxplot, the dataframe, and the scatterplot
+}
+
+else {
+  return(list(plot2, knitr::kable(df2)))
+  #non-numeric columns return the boxplot and the dataframe
+}
 
 }
 
-summary2(Medu)
+summary2("Medu")
 ```
 
-## Including Plots
+We can see here that aside from the outlier of Mother's Educational Level (MEDU) of 0 which has just three observations, there is a clear and consistent increasing trend between MEDU and average grades, of about 1 to 1.5 points on the 30-point scale per educational level.
 
-You can also embed plots, for example:
 
-```{r}
-q3%>%
-  group_by(Medu) %>%
-  summarize(m = mean(G3.y), n = n(), median = median(G3.y))
+```{r, warning=FALSE}
+summary2("Fedu")
 
 ```
-```{r}
-num.cols <- c("Medu", "Fedu", "famrel.x", "G3.x", "G3.y")
-q3[num.cols] <- sapply(q3[num.cols], as.numeric)
+
+Also ignoring the FEDU = 0 of just two observations, we notice a jump from 14.4 to 16.8 from FEDU = 1 to 2, before it rather levels out.
+
+```{r, warning=FALSE}
+q3$Pedu <- q3$Fedu + q3$Medu
+#creates the new variable of the sum of Father and Mother educational attainment
+summary2("Pedu")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Here we are analyzing the sum of the educational levels of the parents, which I have accordingly called PEDU. Again ignoring the outlier PEDU = 0, we see a clear increasing linear trend of about 1 grade point per educational level, until it levels out at PEDU=6.
+
+"famrel" measures the quality of the student's self-reported relationship with their family, on a numerical 1-5 scale. There appears to be a small trend between this variable and higher grades.
+```{r, warning=FALSE}
+summary2("famrel.x")
+```
+
+It appears that "health" and "teacher" seem to be the parental professions that correlate with the highest grades, whereas the "at-home" and "other" designations correlate with the lowest. 
+```{r, warning=FALSE}
+summary2("Mjob")
+summary2("Fjob")
+
+```
+
+Some rather surprising phenomenon below. It appears that whether or not a student receives family educational support has no bearing on their aveage grades, with 16.8 for those who answered "no" vs 16.6 for those who answered "yes." As well, students with parents who live apart average 17.8, which is actually *higher* than the 16.5 average of students with parents that live together.
+```{r, warning=FALSE}
+summary2("Pstatus")
+summary2("famsup.x")
+```
+
+
+
+Here we can observe some interaction between Parental Status and the above-defined PEDU variable in terms of the effect on the response variable of average grade. The students with parents that are "together" exhibit a clear increasing trend in their grades as PEDU increases (save for PEDU=1 with merely two observations), before levelling out at PEDU=6. The students with "apart" parental statuses, however, do not have any trend with PEDU, as we literally see alternating increases and decreases in their grades for each one-level increase in PEDU. Granted, this could be due to the smaller sample sizes within the "apart" subset.
+
+```{r, warning=FALSE}
+knitr::kable(q3 %>%
+  group_by(Pstatus, Pedu) %>%
+  summarize(Mean = mean(G3.avg), Number = n(), Median = median(G3.avg), Standard_Deviation = sd(G3.avg)) )
+#looking at PEDU by Parental Status and the summary statistics of that for GPA; this is a tidy formatted table
+```
+
+This shows that there is an interaction between sex and parental status in terms of their effects on GPA. The 21 Females with parents who live apart have an average of 15.9 -- which might make sense, as that is just under the overall average -- whereas the 17 males with parents who live apart have an average of 20.1! This is in spite of no major difference between the sexes overall in terms of grades.
+
+```{r, warning=FALSE}
+knitr::kable(q3 %>%
+  group_by(sex, Pstatus) %>%
+  summarize(Mean = mean(G3.avg), Number = n(), Median = median(G3.avg), Standard_Deviation = sd(G3.avg)) )
+#similar idea as above
+```
+
+
+# REPORT:
+
+I analyzed a data set on secondary education schools in Portugal. Every row is an individual student, ages ranging from 15-22, filled with lots of information about them, "collected by using schools reports and questionnaires." There was no missing data (!). In particular, their grades out of 30 in each of Portuguese and Mathematics are shown. For my analysis, I took the average of these two columns as my dependent variable (G3.avg). The data sets are separate for Portuguese and Mathematics, but in the documentation defines 382 students that occur in both data sets, and a method to merge them on several specified columns, which I replicated here. The variables that were used as keys for the merge are: ("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"). This would create indentical duplicates, ending in a .x and a .y, but interestingly each had a few FALSEs when I set say famrel.x == famrel.y, so I note this as an error in my research. There were many variables, but in particular I wanted to see how the family life variables affected the dependent variable of the Portuguese-Math grade average. Thus my research question was what aspects of family life affect student performance, and how?
+
+I cleaned the data a little bit, as some obviously numeric columns were not actually coded as numeric after the merge, so I set them as such. I then wrote a very long function to provide insight into my variables of interest. 
+
+Several variables were of interest for this. Mother's Educational Level -- coded as "Medu" -- was on a 0-4 numerical scale: (0 - none,  1 - primary education (4th grade), 2 – 5th to 9th grade, 3 – secondary education or 4 – higher education). Father's Educational Level -- "Fedu" -- was the same. I took the sum of these to create "Pedu" (P for parents). The importance of the mother's educational level on grades increased steadily from 1-4, whereas the effect of the Father's educational level would sort of level out after the "5th-9th grade" category. "Pedu" would likewise level out after the sum of these hit six, after increasing about 1-1.5 grade points per educational level to that point. "famrel.x" measured the quality of family relationships (numeric: from 1 - very bad to 5 - excellent). This had a very small, but noticeably linear, effect on grades. "Mjob" and "Fjob" grouped the professions of the student's mother and father, respectively, into: ("teacher", "health" care related, civil "services" (e.g. administrative or police), "at_home" or "other"). It appears that teacher and health jobs correlated with the highest scores for their children, while "at-home" and "other" were on the lower ends.
+
+Interestingly, whether or not a student received family support had no bearing on the student's grades, and students with aprents living apart actually had slightly higher grades than their peers with parents living together. However, when we break this up by sex, we observe an interesting phenomenon. Female students with parents living apart score just under, a hair under the overall average, whereas male students with parents living apart score over 20 on average! Overall, however, the difference in grades between males and females is indescernible. Especially as this is disparate impact, perhaps it should be a public policy goal to ensure that female students with separated parents are still receiving the necessary support to succeed. In general, however, it is clear that the biggest causes of grade increases that I have identified include the level of educational attainment of one's parents (although particularly for fathers, the importance of this can level off) as well as the type of job your parents have. These two variables are likely correlated, in fact. It is surprising that the level of support and the level of relationship with one's family were not more important in predicting grades. Perhaps this points to limitations in my data. This is only two public schools in Portugal, so it is difficult to say how generalizable it is to everyone. Furthermore, perhaps the sample size was an issue, as you can note in the dataframes that the standard deviations are too large to claim statistical significance in almost all cases. As well, maybe the original data collection methods itself were not perfect.
+
+Data can be found here:
+[link](https://archive.ics.uci.edu/ml/datasets/student+performance)
+
