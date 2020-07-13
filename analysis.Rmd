@@ -1,0 +1,70 @@
+---
+title: "Analysis"
+author: "William Graif"
+date: "7/11/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+#install.packages("tidyverse")
+
+theme_set(theme_minimal())
+```
+
+
+```{r}
+#d1=read.table("student-mat[1].csv",sep=";",header=TRUE)
+#d2=read.table("student-por[1].csv",sep=";",header=TRUE)
+
+#d3=merge(d1,d2,by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+#print(nrow(d3)) # 382 students
+
+q1 = read.csv("student-mat[1].csv", sep=";", header=TRUE)
+q2 = read.csv("student-por[1].csv", sep=";", header=TRUE)
+q3 = inner_join(q1,q2,by=c("school","sex","age","address","famsize","Pstatus","Medu","Fedu","Mjob","Fjob","reason","nursery","internet"))
+
+num.cols <- c("Medu", "Fedu", "famrel.x", "G3.x", "G3.y")
+q3[num.cols] <- sapply(q3[num.cols], as.numeric)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r}
+summary2 <- function(i2) {
+
+q3 %>%
+ggplot(mapping = aes(x=i2, y=G3.y, group=i2)) +
+  geom_boxplot(notch = TRUE)
+
+knitr::kable ( q3 %>%
+  group_by(i2) %>%
+  summarize(Mean = mean(G3.y), Number = n(), Median = median(G3.y)) )
+
+}
+
+summary2(Medu)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r}
+q3%>%
+  group_by(Medu) %>%
+  summarize(m = mean(G3.y), n = n(), median = median(G3.y))
+
+```
+```{r}
+num.cols <- c("Medu", "Fedu", "famrel.x", "G3.x", "G3.y")
+q3[num.cols] <- sapply(q3[num.cols], as.numeric)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
